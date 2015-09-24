@@ -5,10 +5,10 @@
 *.suo
 *.user
 *.sln.docstates
-aes-serial/ciphertext
 testdata/test_10mb.bin
 testdata/test_20mb.bin
 testdata/test_100mb.bin
+testdata/ciphertext
 
 # Build results
 
