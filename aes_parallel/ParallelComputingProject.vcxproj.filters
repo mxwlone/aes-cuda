@@ -1,0 +1,41 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <CudaCompile Include="aes_parallel.cu" />
+    <CudaCompile Include="kernel.cu" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="testdata">
+      <UniqueIdentifier>{e3d16a9e-6757-42df-90a3-a72a1b53b641}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\testdata\test_500k.bin">
+      <Filter>testdata</Filter>
+    </None>
+    <None Include="..\testdata\test_100mb.bin">
+      <Filter>testdata</Filter>
+    </None>
+    <None Include="..\testdata\test_100k.bin">
+      <Filter>testdata</Filter>
+    </None>
+    <None Include="..\testdata\test_20mb.bin">
+      <Filter>testdata</Filter>
+    </None>
+    <None Include="..\testdata\test_10mb.bin">
+      <Filter>testdata</Filter>
+    </None>
+    <None Include="..\testdata\test_10k.bin">
+      <Filter>testdata</Filter>
+    </None>
+    <None Include="..\testdata\test_1mb.bin">
+      <Filter>testdata</Filter>
+    </None>
+    <None Include="..\testdata\plaintext">
+      <Filter>testdata</Filter>
+    </None>
+    <None Include="..\testdata\ciphertext">
+      <Filter>testdata</Filter>
+    </None>
+  </ItemGroup>
+</Project>

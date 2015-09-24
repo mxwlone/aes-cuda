@@ -86,10 +86,8 @@
     <ClInclude Include="aes.h" />
   </ItemGroup>
   <ItemGroup>
-    <Text Include="data.txt" />
-    <Text Include="Text.txt" />
-  </ItemGroup>
-  <ItemGroup>
+    <None Include="..\testdata\ciphertext" />
+    <None Include="..\testdata\plaintext" />
     <None Include="..\testdata\test_100k.bin" />
     <None Include="..\testdata\test_100mb.bin" />
     <None Include="..\testdata\test_10k.bin" />
@@ -97,8 +95,6 @@
     <None Include="..\testdata\test_1mb.bin" />
     <None Include="..\testdata\test_20mb.bin" />
     <None Include="..\testdata\test_500k.bin" />
-    <None Include="ciphertext" />
-    <None Include="plaintext" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

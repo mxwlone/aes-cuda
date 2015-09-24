@@ -31,20 +31,6 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <Text Include="data.txt">
-      <Filter>Ressourcendateien</Filter>
-    </Text>
-    <Text Include="Text.txt">
-      <Filter>Ressourcendateien</Filter>
-    </Text>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="plaintext">
-      <Filter>Ressourcendateien</Filter>
-    </None>
-    <None Include="ciphertext">
-      <Filter>Ressourcendateien</Filter>
-    </None>
     <None Include="..\testdata\test_1mb.bin">
       <Filter>Ressourcendateien\testdata</Filter>
     </None>
@@ -64,6 +50,12 @@
       <Filter>Ressourcendateien\testdata</Filter>
     </None>
     <None Include="..\testdata\test_10k.bin">
+      <Filter>Ressourcendateien\testdata</Filter>
+    </None>
+    <None Include="..\testdata\plaintext">
+      <Filter>Ressourcendateien\testdata</Filter>
+    </None>
+    <None Include="..\testdata\ciphertext">
       <Filter>Ressourcendateien\testdata</Filter>
     </None>
   </ItemGroup>

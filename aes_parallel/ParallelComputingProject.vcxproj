@@ -88,6 +88,7 @@
       <Command>echo copy "$(CudaToolkitBinDir)\cudart*.dll" "$(OutDir)"
 copy "$(CudaToolkitBinDir)\cudart*.dll" "$(OutDir)"</Command>
     </PostBuildEvent>
+    <CudaCompile />
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -154,6 +155,20 @@ copy "$(CudaToolkitBinDir)\cudart*.dll" "$(OutDir)"</Command>
   <ItemGroup>
     <CudaCompile Include="aes_parallel.cu" />
     <CudaCompile Include="kernel.cu" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="aes.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\testdata\ciphertext" />
+    <None Include="..\testdata\plaintext" />
+    <None Include="..\testdata\test_100k.bin" />
+    <None Include="..\testdata\test_100mb.bin" />
+    <None Include="..\testdata\test_10k.bin" />
+    <None Include="..\testdata\test_10mb.bin" />
+    <None Include="..\testdata\test_1mb.bin" />
+    <None Include="..\testdata\test_20mb.bin" />
+    <None Include="..\testdata\test_500k.bin" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

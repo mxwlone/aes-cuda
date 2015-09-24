@@ -1,4 +1,4 @@
-#define DEBUG 0
+#define DEBUG 1
 #define _CRT_SECURE_NO_WARNINGS
 #define _CRT_SECURE_NO_DEPRECATE
 
@@ -25,12 +25,13 @@ uint8_t key[16] = { (uint8_t)0x2b, (uint8_t)0x7e, (uint8_t)0x15, (uint8_t)0x16,
 					(uint8_t)0xab, (uint8_t)0xf7, (uint8_t)0x15, (uint8_t)0x88, 
 					(uint8_t)0x09, (uint8_t)0xcf, (uint8_t)0x4f, (uint8_t)0x3c };
 
-char* INPUT_FILE = "../testdata/test_1mb.bin";
-char* OUTPUT_FILE = "ciphertext";
+//char* INPUT_FILE = "../testdata/test_500k.bin";
+char* INPUT_FILE = "../testdata/plaintext";
+char* OUTPUT_FILE = "../testdata/ciphertext";
 
 int main(void)
 {
-	return encrypt_file(OUTPUT_FILE, INPUT_FILE);;
+	return encrypt_file(OUTPUT_FILE, INPUT_FILE);
 }
 
 int encrypt_file(char* outfile, char* infile) {
@@ -61,8 +62,7 @@ int encrypt_file(char* outfile, char* infile) {
 		number_of_blocks++;
 
 #if defined(DEBUG) && DEBUG
-		char print_plaintext_block[17];
-		print_plaintext_block[BLOCKSIZE] = '\0';
+		char print_plaintext_block[16];
 
 		if (current_blocksize > 0) {
 			strncpy(print_plaintext_block, plaintext_block, 16);
