@@ -153,6 +153,7 @@ copy "$(CudaToolkitBinDir)\cudart*.dll" "$(OutDir)"</Command>
     </CudaCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <CudaCompile Include="aes.cu" />
     <CudaCompile Include="aes_parallel.cu" />
     <CudaCompile Include="kernel.cu" />
   </ItemGroup>

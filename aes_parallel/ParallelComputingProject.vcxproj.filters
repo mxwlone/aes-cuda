@@ -3,6 +3,7 @@
   <ItemGroup>
     <CudaCompile Include="aes_parallel.cu" />
     <CudaCompile Include="kernel.cu" />
+    <CudaCompile Include="aes.cu" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="testdata">
@@ -37,5 +38,8 @@
     <None Include="..\testdata\ciphertext">
       <Filter>testdata</Filter>
     </None>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="aes.h" />
   </ItemGroup>
 </Project>

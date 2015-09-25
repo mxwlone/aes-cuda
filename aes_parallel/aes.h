@@ -1,4 +1,7 @@
 #include <stdint.h>
+#include <stdio.h>
+#include "cuda_runtime.h"
+#include "device_launch_parameters.h"
 
 // blocksize in bytes
 #define BLOCKSIZE 16
@@ -13,7 +16,7 @@
 
 void KeyExpansion(uint8_t* key);
 
-//void AES128_ECB_encrypt(uint8_t* input, const uint8_t* key, uint8_t *output);
+__device__ void AES128_ECB_encrypt(uint8_t* ciphertext_block, const uint8_t* roundKey);
 
 
 // Lookup-tables

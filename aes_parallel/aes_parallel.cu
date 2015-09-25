@@ -1,18 +1,15 @@
 #define DEBUG 1
 
-#include "cuda_runtime.h"
-#include "device_launch_parameters.h"
-
-#include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <assert.h>
 
 #include "aes.h"
 
 static void encrypt_file(char* outfile, char* infile, uint8_t* key);
 static void __host__ phex(uint8_t* str);
 
-__global__ void cuda_encrypt_block();
+__global__ void cuda_encrypt_block(uint8_t* d_ciphertext, uint8_t* d_plaintext, uint8_t* d_roundKey, uintmax_t plaintext_blocks);
 
 // The array that stores the round keys.
 uint8_t h_roundKey[176];
@@ -58,12 +55,15 @@ void encrypt_file(char* outfile, char* infile, uint8_t* key) {
 	}
 #endif
 
+	// determine size of file, read file into h_plaintext and determine number of plaintext blocks
 	fseek(fp_in, 0, SEEK_END);
 	uintmax_t plaintext_size = ftell(fp_in);
 	rewind(fp_in);
 	uint8_t* h_plaintext = (uint8_t*)malloc(plaintext_size);
 	uintmax_t bytes_read = fread(h_plaintext, sizeof(uint8_t), plaintext_size, fp_in);
-	plaintext_blocks = (bytes_read + BLOCKSIZE - 1) / BLOCKSIZE; 
+	assert(bytes_read == plaintext_size);
+	plaintext_blocks = (bytes_read + BLOCKSIZE - 1) / BLOCKSIZE;
+	uint8_t* h_ciphertext = (uint8_t*)malloc(plaintext_blocks*BLOCKSIZE);
 
 	printf("File size: %llu bytes\n", plaintext_size);
 	printf("Bytes read: %llu bytes\n", bytes_read);
@@ -81,6 +81,13 @@ void encrypt_file(char* outfile, char* infile, uint8_t* key) {
 	cudaStatus = cudaMalloc((void**)&d_plaintext, sizeof(uint8_t) * (plaintext_blocks * BLOCKSIZE)); // TODO if last block is smaller than BLOCKSIZE, the block maybe needs to be initialized with zero bits, test if this has to be done
 	if (cudaStatus != cudaSuccess) {
 		fprintf(stderr, "cudaMalloc failed!");
+		goto Error;
+	}
+
+	// make sure the last block is padded with zero bytes by initializing the full array with zero bytes
+	cudaStatus = cudaMemset(d_plaintext, 0, sizeof(uint8_t) * (plaintext_blocks * BLOCKSIZE));
+	if (cudaStatus != cudaSuccess) {
+		fprintf(stderr, "cudaMemset failed!");
 		goto Error;
 	}
 
@@ -111,21 +118,74 @@ void encrypt_file(char* outfile, char* infile, uint8_t* key) {
 		goto Error;
 	}
 
-	uintmax_t threads_per_block = 256;
-	uintmax_t blocks_per_grid = (plaintext_blocks + threads_per_block - 1) / threads_per_block;
-	cuda_encrypt_block<<<blocks_per_grid, threads_per_block>>>(plaintext_blocks);
+	// initialize the ciphertext with all zero // this is not necessary, it seems
+	//cudaStatus = cudaMemset(d_ciphertext, 0, sizeof(uint8_t) * (plaintext_blocks * BLOCKSIZE));
+	//if (cudaStatus != cudaSuccess) {
+	//	fprintf(stderr, "cudaMemset failed!");
+	//	goto Error;
+	//}
 
-	// move h_plaintext and h_roundKey into shared memory
-	//__shared__ uint8_t s_roundKey[176];
-	//s_roundKey[tid] = d_roundKey[tid];
-	//__shared__ uint8_t s_plaintext[BLOCKSIZE];
-	//s_plaintext[tid] = d_plaintext[tid];
+	uintmax_t threads_per_block = 128;
+	uintmax_t number_of_blocks = (plaintext_blocks + threads_per_block - 1) / threads_per_block;
+
+	printf("Launching kernel with configuration:\n");
+	printf("Threads per block: %d\n", threads_per_block);
+	printf("Number of blocks: %d\n", number_of_blocks);
+
+	// reset last error
+	cudaGetLastError();
+	cuda_encrypt_block<<<number_of_blocks, threads_per_block>>>(d_ciphertext, d_plaintext, d_roundKey, plaintext_blocks);
+
+	cudaStatus = cudaGetLastError();
+	if (cudaStatus != cudaSuccess) {
+		fprintf(stderr, "Kernel launch failed: %s\n", cudaGetErrorString(cudaStatus));
+		goto Error;
+	}
+
+	cudaStatus = cudaDeviceSynchronize();
+	if (cudaStatus != cudaSuccess) {
+		fprintf(stderr, "cudaDeviceSynchronize returned error code %d after launching kernel!\n", cudaStatus);
+		goto Error;
+	}
+
+	// Copy ciphertext array from device memory to host memory.
+	cudaStatus = cudaMemcpy(h_ciphertext, d_ciphertext, sizeof(uint8_t) * (plaintext_blocks * BLOCKSIZE), cudaMemcpyDeviceToHost);
+	if (cudaStatus != cudaSuccess) {
+		fprintf(stderr, "cudaMemcpy failed!");
+		goto Error;
+	}
+	
+#if defined(DEBUG) && DEBUG
+	printf("Ciphertext after kernel launch:\n");
+	for (i = 0; i < plaintext_blocks; i++) {
+		phex(h_ciphertext + (i * BLOCKSIZE));
+	}
+#endif
+
+//	// Copy plaintext array from device memory to host memory. // just to be able to print it
+//	cudaStatus = cudaMemcpy(h_plaintext, d_plaintext, sizeof(uint8_t) * (plaintext_blocks * BLOCKSIZE), cudaMemcpyDeviceToHost);
+//	if (cudaStatus != cudaSuccess) {
+//		fprintf(stderr, "cudaMemcpy failed!");
+//		goto Error;
+//	}
+//
+//#if defined(DEBUG) && DEBUG
+//	printf("Plaintext on device:\n");
+//	for (i = 0; i < plaintext_blocks; i++) {
+//		phex(h_plaintext + (i * BLOCKSIZE));
+//	}
+//#endif
 
 	printf("\nEncryption of %llu 128-bit plaintext blocks successful!\n", plaintext_blocks);
 	return;
 
 Error:
+	free(h_plaintext);
+	free(h_ciphertext);
+	free(h_roundKey);
+
 	cudaFree(d_plaintext);
+	cudaFree(d_ciphertext);
 	cudaFree(d_roundKey);
 	
 	fclose(fp_in);
@@ -133,12 +193,18 @@ Error:
 	exit(1);	
 }
 
-__global__ void cuda_encrypt_block(uintmax_t plaintext_blocks) {
+__global__ void cuda_encrypt_block(uint8_t* d_ciphertext, uint8_t* d_plaintext, uint8_t* d_roundKey, uintmax_t plaintext_blocks) {
 	uintmax_t idx = (threadIdx.x + blockIdx.x * blockDim.x);
 
 	if (idx < plaintext_blocks) {
+		uintmax_t offset = idx*BLOCKSIZE;
 
+		// test kernel function by just copying the plaintext on the device to the ciphertext on the device
+		memcpy(d_ciphertext + (offset), d_plaintext + (offset), BLOCKSIZE);
+		
+		AES128_ECB_encrypt(d_ciphertext + (offset), d_roundKey);
 		// encrypt plaintextblock d_plaintext[idx]
+
 	}	
 }
 
