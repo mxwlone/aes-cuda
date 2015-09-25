@@ -53,6 +53,13 @@ int encrypt_file(char* outfile, char* infile) {
 
 	KeyExpansion(roundKey, key);
 
+#if defined(DEBUG) && DEBUG
+	printf("Round Keys:\n");
+	uint8_t i;
+	for (i = 0; i < ROUNDS + 1; i++) {
+		phex(roundKey + (i * ROUNDS));
+	}
+#endif
 	
 	do {
 		current_blocksize = read_plaintext_block(fp_in);
