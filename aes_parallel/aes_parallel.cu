@@ -8,8 +8,8 @@ static void __host__ phex(uint8_t* str);
 // The array that stores the round keys.
 uint8_t h_roundKey[176];
 
-char* INPUT_FILE = "../testdata/test_10k.bin";
-char* OUTPUT_FILE = "../testdata/ciphertext_10k_parallel";
+char* INPUT_FILE = "../testdata/test_10mb.bin";
+char* OUTPUT_FILE = "../testdata/ciphertext_10mb_parallel";
 
 int main() {
 	uint8_t key[16] = { (uint8_t)0x2b, (uint8_t)0x7e, (uint8_t)0x15, (uint8_t)0x16,
@@ -62,8 +62,8 @@ void encrypt_file(char* outfile, char* infile, uint8_t* key) {
 	plaintext_blocks = (bytes_read + BLOCKSIZE - 1) / BLOCKSIZE;
 	uint8_t* h_ciphertext = (uint8_t*)malloc(plaintext_blocks*BLOCKSIZE);
 
+	printf("Encrypting file \"%s\"\n", infile);
 	printf("File size: %llu bytes\n", plaintext_size);
-	printf("Bytes read: %llu bytes\n", bytes_read);
 	printf("Number of blocks: %llu (blocksize: %d bytes)\n", plaintext_blocks, BLOCKSIZE);
 
 #if defined(DEBUG) && DEBUG
@@ -141,7 +141,7 @@ void encrypt_file(char* outfile, char* infile, uint8_t* key) {
 
 	cudaStatus = cudaDeviceSynchronize();
 	if (cudaStatus != cudaSuccess) {
-		fprintf(stderr, "cudaDeviceSynchronize returned error code %d after launching kernel!\n", cudaStatus);
+		fprintf(stderr, "cudaDeviceSynchronize failed: %s\n", cudaGetErrorString(cudaStatus));
 		goto Error;
 	}
 

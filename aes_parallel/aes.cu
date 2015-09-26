@@ -212,15 +212,16 @@ __global__ void cuda_encrypt_block(uint8_t* d_ciphertext, uint8_t* d_plaintext, 
 		
 		// copy plaintext block to be encrypted by this thread into shared ciphertext array
 		uint8_t i;
-		for (i = 0; i < BLOCKSIZE; i++) {
+
+		/*for (i = 0; i < BLOCKSIZE; i++) {
 			s_ciphertext[offset + i] = d_plaintext[offset + i];
-		}
+		}*/
 		
 		// test kernel function by just copying the plaintext on the device to the ciphertext on the device
 		memcpy(d_ciphertext + offset, d_plaintext + offset, BLOCKSIZE);
 
 		// each plaintext block is encrypted by an individual thread
-		AES128_ECB_encrypt(s_ciphertext + offset, s_roundKey);
-		memcpy(d_ciphertext + offset, s_ciphertext + offset, sizeof(uint8_t)*BLOCKSIZE);
+		AES128_ECB_encrypt(d_ciphertext + offset, s_roundKey);
+		//memcpy(d_ciphertext + offset, s_ciphertext + offset, sizeof(uint8_t)*BLOCKSIZE);
 	}
 }
