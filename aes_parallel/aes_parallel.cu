@@ -64,7 +64,7 @@ void encrypt_file(char* outfile, char* infile, uint8_t* key) {
 
 	printf("Encrypting file \"%s\"\n", infile);
 	printf("File size: %llu bytes\n", plaintext_size);
-	printf("Number of blocks: %llu (blocksize: %d bytes)\n", plaintext_blocks, BLOCKSIZE);
+	printf("Number of plaintext chunks: %llu (blocksize: %d bytes)\n", plaintext_blocks, BLOCKSIZE);
 
 #if defined(DEBUG) && DEBUG
 	printf("Plaintext:\n");
@@ -124,14 +124,16 @@ void encrypt_file(char* outfile, char* infile, uint8_t* key) {
 
 	uintmax_t threads_per_block = THREADS_PER_BLOCK;
 	uintmax_t number_of_blocks = (plaintext_blocks + threads_per_block - 1) / threads_per_block;
+	//uintmax_t shared_memory_size = (BLOCKSIZE * THREADS_PER_BLOCK);
 
 	printf("Launching kernel with configuration:\n");
-	printf("Threads per block: %d\n", threads_per_block);
-	printf("Number of blocks: %d\n", number_of_blocks);
+	printf("Threads per block: %lld\n", threads_per_block);
+	printf("Number of blocks: %lld\n", number_of_blocks);
+	//printf("Shared memory size: %lld\n", shared_memory_size);
 
 	// reset last error
 	cudaGetLastError();
-	cuda_encrypt_block<<<number_of_blocks, threads_per_block>>>(d_ciphertext, d_plaintext, d_roundKey, plaintext_blocks);
+	cuda_encrypt_block<<<number_of_blocks, threads_per_block/*,shared_memory_size*/>>>(d_ciphertext, d_plaintext, d_roundKey, plaintext_blocks);
 
 	cudaStatus = cudaGetLastError();
 	if (cudaStatus != cudaSuccess) {
@@ -158,6 +160,8 @@ void encrypt_file(char* outfile, char* infile, uint8_t* key) {
 		phex(h_ciphertext + (i * BLOCKSIZE));
 	}
 #endif
+
+	// TODO write ciphertext into file
 
 //	// Copy roundkey array from device memory to host memory to check if it is correct
 //	cudaStatus = cudaMemcpy(h_roundKey, d_roundKey, sizeof(uint8_t) * (BLOCKSIZE * (ROUNDS+1)), cudaMemcpyDeviceToHost);

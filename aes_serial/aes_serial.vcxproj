@@ -95,6 +95,7 @@
     <None Include="..\testdata\test_1mb.bin" />
     <None Include="..\testdata\test_20mb.bin" />
     <None Include="..\testdata\test_500k.bin" />
+    <None Include="..\testdata\test_8k.bin" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

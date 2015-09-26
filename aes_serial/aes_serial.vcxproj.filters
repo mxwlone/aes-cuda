@@ -58,5 +58,8 @@
     <None Include="..\testdata\ciphertext">
       <Filter>Ressourcendateien\testdata</Filter>
     </None>
+    <None Include="..\testdata\test_8k.bin">
+      <Filter>Ressourcendateien\testdata</Filter>
+    </None>
   </ItemGroup>
 </Project>

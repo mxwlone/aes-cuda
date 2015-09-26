@@ -7,7 +7,7 @@
 #include "device_launch_parameters.h"
 
 // Number of threads in a block (maximum 1024 for compute capability 2.1)
-#define THREADS_PER_BLOCK 128
+#define THREADS_PER_BLOCK 256
 // blocksize in bytes
 #define BLOCKSIZE 16
 // The number of columns comprising a state in AES.

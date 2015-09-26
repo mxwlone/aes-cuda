@@ -65,7 +65,7 @@ __device__ __constant__ uint8_t d_sbox[256] = {
 
 // XOR the round key on state.
 __device__ void AddRoundKey(state_t* state, uint8_t* roundKey, uint8_t round) {
-	uintmax_t idx = get_global_index();
+	//uintmax_t idx = get_global_index();
 
 	//printf("[Thread %lld] roundKey: %.2x%.2x%.2x%.2x%.2x%.2x%.2x%.2x%.2x%.2x%.2x%.2x%.2x%.2x%.2x%.2x\n", idx,
 	//	roundKey[round*BLOCKSIZE + 0], roundKey[round*BLOCKSIZE + 1], roundKey[round*BLOCKSIZE + 2], roundKey[round*BLOCKSIZE + 3], 
@@ -191,37 +191,40 @@ __device__ void AES128_ECB_encrypt(uint8_t* ciphertext_block, uint8_t* roundKey)
 __global__ void cuda_encrypt_block(uint8_t* d_ciphertext, uint8_t* d_plaintext, uint8_t* d_roundKey, uintmax_t plaintext_blocks) {
 	uintmax_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 	__shared__ uint8_t s_roundKey[BLOCKSIZE * (ROUNDS + 1)];
+	//extern __shared__ uint8_t s_ciphertext[];
 	__shared__ uint8_t s_ciphertext[BLOCKSIZE * THREADS_PER_BLOCK];
 
 	// first thraed of a block copies round key into shared memory
-	if (idx % THREADS_PER_BLOCK == 0) {
+	if ((idx % THREADS_PER_BLOCK) == 0) {
 
+		//printf("[Thread %lld] Copy roundkey into shared memory\n", idx);
 		// TODO allocate shared round key by ROUNDS+1 threads in parallel. In this case, we must assure the kernel is launched with at least ROUNDS+1 threads per block.
-		uint8_t j;
-		for (j = 0; j < BLOCKSIZE*(ROUNDS + 1); j++) {
-			//printf("s_roundkey[%d] = d_roundKey[%d] = %.2x\n", j, j, d_roundKey[j]);
-			s_roundKey[j] = d_roundKey[j];
-		}
+		memcpy(s_roundKey, d_roundKey, BLOCKSIZE*(ROUNDS + 1)); // memcpy is faster than for loop copy
+		//uint8_t j;
+		//for (j = 0; j < BLOCKSIZE*(ROUNDS + 1); j++) {
+		//	//printf("s_roundkey[%d] = d_roundKey[%d] = %.2x\n", j, j, d_roundKey[j]);
+		//	s_roundKey[j] = d_roundKey[j];
+		//}
 
 	}
 
 	__syncthreads();
 
 	if (idx < plaintext_blocks) {
-		uint64_t offset = idx*BLOCKSIZE;
+		uintmax_t offset = idx*BLOCKSIZE;
+		uintmax_t block_offset = (idx % THREADS_PER_BLOCK) * BLOCKSIZE;
 		
 		// copy plaintext block to be encrypted by this thread into shared ciphertext array
-		uint8_t i;
-
-		/*for (i = 0; i < BLOCKSIZE; i++) {
-			s_ciphertext[offset + i] = d_plaintext[offset + i];
-		}*/
+		//uint8_t i;
+		//for (i = 0; i < BLOCKSIZE; i++) {
+		//	s_ciphertext[offset + i] = d_plaintext[offset + i];
+		//}
+		memcpy(s_ciphertext + block_offset, d_plaintext + offset, BLOCKSIZE);
 		
-		// test kernel function by just copying the plaintext on the device to the ciphertext on the device
-		memcpy(d_ciphertext + offset, d_plaintext + offset, BLOCKSIZE);
+		//memcpy(d_ciphertext + offset, d_plaintext + offset, BLOCKSIZE);
 
 		// each plaintext block is encrypted by an individual thread
-		AES128_ECB_encrypt(d_ciphertext + offset, s_roundKey);
-		//memcpy(d_ciphertext + offset, s_ciphertext + offset, sizeof(uint8_t)*BLOCKSIZE);
+		AES128_ECB_encrypt(s_ciphertext + block_offset, s_roundKey);
+		memcpy(d_ciphertext + offset, s_ciphertext + block_offset, sizeof(uint8_t)*BLOCKSIZE);
 	}
 }
