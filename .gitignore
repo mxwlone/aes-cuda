@@ -9,6 +9,7 @@ testdata/test_10mb.bin
 testdata/test_20mb.bin
 testdata/test_100mb.bin
 testdata/ciphertext
+testdata/ciphertext*
 
 # Build results
 
