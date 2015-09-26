@@ -1,18 +1,15 @@
-#define DEBUG 1
-#define THREADS_PER_BLOCK 4
+#define DEBUG 0
 
 #include "aes.h"
 
 static void encrypt_file(char* outfile, char* infile, uint8_t* key);
 static void __host__ phex(uint8_t* str);
 
-
-
 // The array that stores the round keys.
 uint8_t h_roundKey[176];
 
-char* INPUT_FILE = "../testdata/plaintext";
-char* OUTPUT_FILE = "../testdata/ciphertext";
+char* INPUT_FILE = "../testdata/test_10k.bin";
+char* OUTPUT_FILE = "../testdata/ciphertext_10k_parallel";
 
 int main() {
 	uint8_t key[16] = { (uint8_t)0x2b, (uint8_t)0x7e, (uint8_t)0x15, (uint8_t)0x16,
@@ -31,6 +28,10 @@ void encrypt_file(char* outfile, char* infile, uint8_t* key) {
 	FILE *fp_out;
 	cudaError_t cudaStatus;
 
+#if defined(DEBUG) && DEBUG
+	uint8_t i;
+#endif
+
 	fp_in = fopen(infile, "rb");
 	if (fp_in == NULL) {
 		fprintf(stderr, "Can't open input file %s!\n", infile);
@@ -46,9 +47,8 @@ void encrypt_file(char* outfile, char* infile, uint8_t* key) {
 	
 #if defined(DEBUG) && DEBUG
 	printf("Round Keys:\n");
-	uint8_t i;
 	for (i = 0; i < ROUNDS + 1; i++) {
-		phex(h_roundKey + (i * ROUNDS));
+		phex(h_roundKey + (i * BLOCKSIZE));
 	}
 #endif
 
@@ -153,7 +153,7 @@ void encrypt_file(char* outfile, char* infile, uint8_t* key) {
 	}
 	
 #if defined(DEBUG) && DEBUG
-	printf("Ciphertext after kernel launch:\n");
+	printf("Ciphertext after kernel returned:\n");
 	for (i = 0; i < plaintext_blocks; i++) {
 		phex(h_ciphertext + (i * BLOCKSIZE));
 	}
