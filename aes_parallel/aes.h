@@ -1,5 +1,8 @@
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <assert.h>
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
 
@@ -16,8 +19,10 @@
 
 void KeyExpansion(uint8_t* key);
 
-__device__ void AES128_ECB_encrypt(uint8_t* ciphertext_block, const uint8_t* roundKey);
-
+__global__ void cuda_encrypt_block(uint8_t* d_ciphertext, uint8_t* d_plaintext, uint8_t* d_roundKey, uintmax_t plaintext_blocks);
+//void AES128_ECB_encrypt(uint8_t* ciphertext_block, const uint8_t* roundKey);
+//__device__ void AES128_ECB_encrypt(uint8_t* ciphertext_block, const uint8_t* roundKey);
+//__device__ void encrypt_block(uint8_t* ciphertext_block, uint8_t* roundKey);
 
 // Lookup-tables
 static const uint8_t sbox[256] = {

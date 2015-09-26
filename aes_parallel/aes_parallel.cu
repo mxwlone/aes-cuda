@@ -1,15 +1,12 @@
 #define DEBUG 1
-
-#include <string.h>
-#include <stdlib.h>
-#include <assert.h>
+#define THREADS_PER_BLOCK 4
 
 #include "aes.h"
 
 static void encrypt_file(char* outfile, char* infile, uint8_t* key);
 static void __host__ phex(uint8_t* str);
 
-__global__ void cuda_encrypt_block(uint8_t* d_ciphertext, uint8_t* d_plaintext, uint8_t* d_roundKey, uintmax_t plaintext_blocks);
+
 
 // The array that stores the round keys.
 uint8_t h_roundKey[176];
@@ -98,13 +95,13 @@ void encrypt_file(char* outfile, char* infile, uint8_t* key) {
 	}
 
 	uint8_t* d_roundKey;
-	cudaMalloc((void**)&d_roundKey, sizeof(uint8_t)*176);
+	cudaMalloc((void**)&d_roundKey, sizeof(uint8_t)*BLOCKSIZE*(ROUNDS+1));
 	if (cudaStatus != cudaSuccess) {
 		fprintf(stderr, "cudaMalloc failed!");
 		goto Error;
 	}
 
-	cudaMemcpy(d_roundKey, h_roundKey, sizeof(unsigned int)*176, cudaMemcpyHostToDevice);
+	cudaMemcpy(d_roundKey, h_roundKey, sizeof(uint8_t)*BLOCKSIZE*(ROUNDS + 1), cudaMemcpyHostToDevice);
 	if (cudaStatus != cudaSuccess) {
 		fprintf(stderr, "cudaMemcpy failed!");
 		goto Error;
@@ -125,7 +122,7 @@ void encrypt_file(char* outfile, char* infile, uint8_t* key) {
 	//	goto Error;
 	//}
 
-	uintmax_t threads_per_block = 128;
+	uintmax_t threads_per_block = THREADS_PER_BLOCK;
 	uintmax_t number_of_blocks = (plaintext_blocks + threads_per_block - 1) / threads_per_block;
 
 	printf("Launching kernel with configuration:\n");
@@ -162,6 +159,20 @@ void encrypt_file(char* outfile, char* infile, uint8_t* key) {
 	}
 #endif
 
+//	// Copy roundkey array from device memory to host memory to check if it is correct
+//	cudaStatus = cudaMemcpy(h_roundKey, d_roundKey, sizeof(uint8_t) * (BLOCKSIZE * (ROUNDS+1)), cudaMemcpyDeviceToHost);
+//	if (cudaStatus != cudaSuccess) {
+//		fprintf(stderr, "cudaMemcpy failed!");
+//		goto Error;
+//	}
+//
+//#if defined(DEBUG) && DEBUG
+//	printf("Round Keys:\n");
+//	for (i = 0; i < ROUNDS + 1; i++) {
+//		phex(h_roundKey + (i * ROUNDS));
+//	}
+//#endif
+
 //	// Copy plaintext array from device memory to host memory. // just to be able to print it
 //	cudaStatus = cudaMemcpy(h_plaintext, d_plaintext, sizeof(uint8_t) * (plaintext_blocks * BLOCKSIZE), cudaMemcpyDeviceToHost);
 //	if (cudaStatus != cudaSuccess) {
@@ -193,20 +204,12 @@ Error:
 	exit(1);	
 }
 
-__global__ void cuda_encrypt_block(uint8_t* d_ciphertext, uint8_t* d_plaintext, uint8_t* d_roundKey, uintmax_t plaintext_blocks) {
-	uintmax_t idx = (threadIdx.x + blockIdx.x * blockDim.x);
+//__device__ void AES128_ECB_encrypt(uint8_t* ciphertext_block, uint8_t* roundKey) {
+//
+//}
 
-	if (idx < plaintext_blocks) {
-		uintmax_t offset = idx*BLOCKSIZE;
 
-		// test kernel function by just copying the plaintext on the device to the ciphertext on the device
-		memcpy(d_ciphertext + (offset), d_plaintext + (offset), BLOCKSIZE);
-		
-		AES128_ECB_encrypt(d_ciphertext + (offset), d_roundKey);
-		// encrypt plaintextblock d_plaintext[idx]
 
-	}	
-}
 
 // This function produces LANESIZE * (ROUNDS+1) round keys. The round keys are used in each round to decrypt the states. 
 void KeyExpansion(uint8_t* key)
