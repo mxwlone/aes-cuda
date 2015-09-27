@@ -30,7 +30,7 @@ int main(int argc, char *argv[]) {
 	
 	if (argc == 3) {
 		cpu_time_used = encrypt_file(argv[1], argv[2], key);
-		printf("Execution time: %f seconds\n", cpu_time_used);
+		printf("Execution time: %6.9f seconds\n", cpu_time_used);
 	}
 	else if (argc == 4) {
 		uint16_t number_of_runs = atoi(argv[3]);
@@ -44,23 +44,21 @@ int main(int argc, char *argv[]) {
 		uint8_t i;
 		for (i = 0; i < number_of_runs; i++) {
 			cpu_time_used = encrypt_file(argv[1], argv[2], key);
-			printf("[Run %d] Execution time: %f seconds\n", i, cpu_time_used);
+			printf("[Run %d] Execution time: %.3f seconds\n", i, cpu_time_used);
 			total_cpu_time_used += cpu_time_used;
 		}
 
 		double average_cpu_time_used = total_cpu_time_used / number_of_runs;
-		printf("Total execution time: %f seconds\n", total_cpu_time_used);
-		printf("Average execution time: %f seconds\n", average_cpu_time_used);
+		printf("Total execution time: %.3f seconds\n", total_cpu_time_used);
+		printf("Average execution time: %.3f seconds\n", average_cpu_time_used);
 	}
 
 	return 0;
 }
 
 double encrypt_file(char* infile, char* outfile, uint8_t* key) {
-	uintmax_t plaintext_blocks = 0;
 	FILE *fp_in;
 	FILE *fp_out;
-	cudaError_t cudaStatus;
 
 #if defined(DEBUG) && DEBUG
 	uint8_t i;
@@ -93,11 +91,10 @@ double encrypt_file(char* infile, char* outfile, uint8_t* key) {
 	uint8_t* h_plaintext = (uint8_t*)malloc(plaintext_size);
 	uintmax_t bytes_read = fread(h_plaintext, sizeof(uint8_t), plaintext_size, fp_in);
 	assert(bytes_read == plaintext_size);
-	plaintext_blocks = (bytes_read + BLOCKSIZE - 1) / BLOCKSIZE;
+	uintmax_t plaintext_blocks = (bytes_read + BLOCKSIZE - 1) / BLOCKSIZE;
 	uint8_t* h_ciphertext = (uint8_t*)malloc(plaintext_blocks*BLOCKSIZE);
 
 	if (!silent) {
-		printf("Encrypting file \"%s\"\n", infile);
 		printf("File size: %llu bytes\n", plaintext_size);
 		printf("Number of plaintext blocks: %llu (blocksize: %d bytes)\n", plaintext_blocks, BLOCKSIZE);
 	}
@@ -108,6 +105,28 @@ double encrypt_file(char* infile, char* outfile, uint8_t* key) {
 		phex(h_plaintext + (i * BLOCKSIZE));
 	}
 #endif
+
+	cudaError_t cudaStatus;
+
+	uintmax_t threads_per_block = THREADS_PER_BLOCK;
+	uintmax_t number_of_blocks = (plaintext_blocks + threads_per_block - 1) / threads_per_block;
+	uintmax_t shared_memory_size = BLOCKSIZE * THREADS_PER_BLOCK + BLOCKSIZE * (ROUNDS + 1);
+
+	if (!silent) {
+		printf("Launching kernel with configuration:\n");
+		printf("Threads per block: %lld\n", threads_per_block);
+		printf("Number of blocks: %lld\n", number_of_blocks);
+		printf("Shared memory size (per block): %lld\n", shared_memory_size);
+	}
+
+	// measure time
+	double cpu_time_used;
+	LARGE_INTEGER frequency;
+	LARGE_INTEGER start, end;
+	QueryPerformanceFrequency(&frequency);
+
+	// start timer
+	QueryPerformanceCounter(&start);
 
 	// copy h_plaintext and h_roundKey into global device memory
 	uint8_t* d_plaintext;
@@ -151,32 +170,8 @@ double encrypt_file(char* infile, char* outfile, uint8_t* key) {
 		goto Error;
 	}
 
-	// initialize the ciphertext with all zero // this is not necessary, it seems
-	//cudaStatus = cudaMemset(d_ciphertext, 0, sizeof(uint8_t) * (plaintext_blocks * BLOCKSIZE));
-	//if (cudaStatus != cudaSuccess) {
-	//	fprintf(stderr, "cudaMemset failed!");
-	//	goto Error;
-	//}
-
-	uintmax_t threads_per_block = THREADS_PER_BLOCK;
-	uintmax_t number_of_blocks = (plaintext_blocks + threads_per_block - 1) / threads_per_block;
-	uintmax_t shared_memory_size = BLOCKSIZE * THREADS_PER_BLOCK + BLOCKSIZE * (ROUNDS + 1);
-
-	if (!silent) {
-		printf("Launching kernel with configuration:\n");
-		printf("Threads per block: %lld\n", threads_per_block);
-		printf("Number of blocks: %lld\n", number_of_blocks);
-		printf("Shared memory size: %lld\n", shared_memory_size);
-	}
-
 	// reset last error
 	cudaGetLastError();
-
-	// measure time
-	clock_t start, end;
-	double cpu_time_used;
-
-	start = clock();
 
 	cuda_encrypt_block<<<number_of_blocks, threads_per_block/*,shared_memory_size*/>>>(d_ciphertext, d_plaintext, d_roundKey, plaintext_blocks);
 
@@ -192,15 +187,16 @@ double encrypt_file(char* infile, char* outfile, uint8_t* key) {
 		goto Error;
 	}
 
-	end = clock();
-	cpu_time_used = ((double)(end - start)) / CLOCKS_PER_SEC;
-
 	// Copy ciphertext array from device memory to host memory.
 	cudaStatus = cudaMemcpy(h_ciphertext, d_ciphertext, sizeof(uint8_t) * (plaintext_blocks * BLOCKSIZE), cudaMemcpyDeviceToHost);
 	if (cudaStatus != cudaSuccess && !silent) {
 		fprintf(stderr, "cudaMemcpy failed!");
 		goto Error;
 	}
+
+	// stop timer
+	QueryPerformanceCounter(&end);
+	cpu_time_used = ((double)(end.QuadPart - start.QuadPart)) / ((double)frequency.QuadPart);
 	
 #if defined(DEBUG) && DEBUG
 	printf("Ciphertext after kernel returned:\n");

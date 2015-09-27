@@ -4,6 +4,7 @@
 #include <string.h>
 #include <assert.h>
 #include <time.h>
+#include <Windows.h>
 
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"

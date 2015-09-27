@@ -7,20 +7,22 @@ int launch_test(char* plaintext, char* ciphertext);
 
 #define NUMBER_OF_FILES 7
 
-const char* files[NUMBER_OF_FILES] = {
-	" ..\\testdata\\test_10k.bin ", 
-	" ..\\testdata\\test_100k.bin ", 
-	" ..\\testdata\\test_500k.bin ", 
-	" ..\\testdata\\test_1mb.bin ", 
-	" ..\\testdata\\test_10mb.bin ", 
-	" ..\\testdata\\test_20mb.bin ", 
-	" ..\\testdata\\test_100mb.bin " };
+const char* files[] = {
+	" ..\\testdata\\test_10k.bin ",		// 1
+	" ..\\testdata\\test_100k.bin ",	// 2
+	" ..\\testdata\\test_500k.bin ",	// 3
+	" ..\\testdata\\test_1mb.bin ",		// 4
+	" ..\\testdata\\test_10mb.bin ",	// 5
+	" ..\\testdata\\test_20mb.bin ",	// 6
+	" ..\\testdata\\test_100mb.bin ",	// 7
+	" ..\\testdata\\test_1gb.bin "		// 8
+};
 
 const char* PATH_SERIAL = " ..\\Release\\aes_serial.exe ";
 const char* PATH_PARALLEL = "..\\Release\\aes_parallel.exe ";
 
 int main(void) {
-
+	
 	char* ciphertext = " ..\\testdata\\ciphertext ";
 	
 	int i;

@@ -5,10 +5,12 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>
+#include <assert.h>
+#include <Windows.h>
 
 #include "aes.h"
 
-static int encrypt_file(char* outfile, char* infile);
+static double encrypt_file(char* outfile, char* infile);
 static size_t read_plaintext_block();
 static void phex(uint8_t* str);
 
@@ -25,46 +27,32 @@ uint8_t key[16] = { (uint8_t)0x2b, (uint8_t)0x7e, (uint8_t)0x15, (uint8_t)0x16,
 					(uint8_t)0xab, (uint8_t)0xf7, (uint8_t)0x15, (uint8_t)0x88, 
 					(uint8_t)0x09, (uint8_t)0xcf, (uint8_t)0x4f, (uint8_t)0x3c };
 
-// unused: file names are provided as parameters
-char* INPUT_FILE = "../testdata/test_10mb.bin";
-char* OUTPUT_FILE = "../testdata/ciphertext_10mb_serial";
-
 int main(int argc, char *argv[]) {
 	if (argc < 3) {
 		printf("Usage: aes_serial.exe <input file> <output file>\n", argv[0]);
 		return 1;
 	}
-	clock_t start, end;
+
 	double cpu_time_used;
-	uint8_t return_value;
-	start = clock();
+	cpu_time_used = encrypt_file(argv[1], argv[2]);
+	printf("Execution time: %6.9f seconds\n", cpu_time_used);
 
-	return_value = encrypt_file(argv[1], argv[2]);
-	if (return_value != 0)
-		return 1;
-
-	end = clock();
-	cpu_time_used = ((double)(end - start)) / CLOCKS_PER_SEC;
-	printf("Execution time: %f seconds\n", cpu_time_used);
-
-	return return_value;
+	return 0;
 }
 
-int encrypt_file(char* infile, char* outfile) {
-	uint64_t number_of_blocks = 0; 
-	size_t current_blocksize = 0;
+double encrypt_file(char* infile, char* outfile) {
 	FILE *fp_in;
 	FILE *fp_out;
 
 	fp_in = fopen(infile, "rb");
 	if (fp_in == NULL) {
 		fprintf(stderr, "Can't open input file %s!\n", infile);
-		return 1;
+		exit(1);
 	}
 	fp_out = fopen(outfile, "wb+");
 	if (fp_out == NULL) {
 		fprintf(stderr, "Can't open output file %s!\n", outfile);
-		return 1;
+		exit(1);
 	}
 
 	KeyExpansion(roundKey, key);
@@ -77,44 +65,64 @@ int encrypt_file(char* infile, char* outfile) {
 	}
 #endif
 
-	printf("Encrypting file \"%s\"\n", infile);
-	
-	do {
-		current_blocksize = read_plaintext_block(fp_in);
-		if (current_blocksize == 0)
-			break;
+	// determine size of file, read file into plaintext and determine number of plaintext blocks
+	fseek(fp_in, 0, SEEK_END);
+	uintmax_t plaintext_size = ftell(fp_in);
+	rewind(fp_in);
+	uint8_t* plaintext = (uint8_t*)malloc(plaintext_size);
+	uintmax_t bytes_read = fread(plaintext, sizeof(uint8_t), plaintext_size, fp_in);
+	assert(bytes_read == plaintext_size);
+	uintmax_t plaintext_blocks = (bytes_read + BLOCKSIZE - 1) / BLOCKSIZE;
+	uint8_t* ciphertext = (uint8_t*)malloc(plaintext_blocks*BLOCKSIZE);
 
-		number_of_blocks++;
+	printf("File size: %llu bytes\n", plaintext_size);
+	printf("Number of plaintext blocks: %llu (blocksize: %d bytes)\n", plaintext_blocks, BLOCKSIZE);
 
 #if defined(DEBUG) && DEBUG
-		char print_plaintext_block[16];
-
-		if (current_blocksize > 0) {
-			strncpy(print_plaintext_block, plaintext_block, 16);
-			printf("plaintext block %d:\n", number_of_blocks);
-			phex(print_plaintext_block);
-		}
+	printf("Plaintext:\n");
+	for (i = 0; i < plaintext_blocks; i++) {
+		phex(plaintext + (i * BLOCKSIZE));
+	}
 #endif
+
+	// measure time
+	double cpu_time_used;
+	LARGE_INTEGER frequency;
+	LARGE_INTEGER start, end;
+	QueryPerformanceFrequency(&frequency);
+
+	// start timer
+	QueryPerformanceCounter(&start);
+
+	uintmax_t j;
+	for (j = 0; j < plaintext_blocks; j++) {
 
 		// encrypt plaintext block
-		AES128_ECB_encrypt(plaintext_block, roundKey, ciphertext_block);
+		AES128_ECB_encrypt(plaintext + j*BLOCKSIZE, roundKey, ciphertext_block);
 
 		// write ciphertext block to output file
-		fwrite(ciphertext_block, sizeof(uint8_t), BLOCKSIZE, fp_out);
-		
+		memcpy(ciphertext + j*BLOCKSIZE, ciphertext_block, sizeof(uint8_t)*BLOCKSIZE);
+	}
+
+	// stop timer
+	QueryPerformanceCounter(&end);
+	cpu_time_used = ((double)(end.QuadPart - start.QuadPart)) / ((double)frequency.QuadPart);
+
+	// write ciphertext to output file
+	fwrite(ciphertext, sizeof(uint8_t), BLOCKSIZE * plaintext_blocks, fp_out);
+	
 #if defined(DEBUG) && DEBUG
-		printf("chipertext block %d:\n", number_of_blocks);
-		phex(ciphertext_block);
-		printf("\n");
+	printf("Ciphertext:\n");
+	for (i = 0; i < plaintext_blocks; i++) {
+		phex(ciphertext + (i * BLOCKSIZE));
+	}
 #endif
 
-	} while (current_blocksize >= BLOCKSIZE);
-	
 	fclose(fp_in);
 	fclose(fp_out);
 
-	printf("\nEncryption of %llu plaintext blocks successful!\n", number_of_blocks);
-	return 0;
+	printf("Encryption of %llu plaintext blocks successful!\n", plaintext_blocks);
+	return cpu_time_used;
 }
 
 // Reads one block of plaintext of size BLOCKSIZE bytes from the file pointed to by the pointer fp.
