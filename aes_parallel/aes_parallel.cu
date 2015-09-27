@@ -8,8 +8,8 @@ static void __host__ phex(uint8_t* str);
 // The array that stores the round keys.
 uint8_t h_roundKey[176];
 
-char* INPUT_FILE = "../testdata/test_10mb.bin";
-char* OUTPUT_FILE = "../testdata/ciphertext_10mb_parallel";
+char* INPUT_FILE = "../testdata/test_10k.bin";
+char* OUTPUT_FILE = "../testdata/ciphertext_10k_parallel";
 
 int main() {
 	uint8_t key[16] = { (uint8_t)0x2b, (uint8_t)0x7e, (uint8_t)0x15, (uint8_t)0x16,
@@ -161,7 +161,8 @@ void encrypt_file(char* outfile, char* infile, uint8_t* key) {
 	}
 #endif
 
-	// TODO write ciphertext into file
+	// write ciphertext to output file
+	fwrite(h_ciphertext, sizeof(uint8_t), BLOCKSIZE * plaintext_blocks, fp_out);
 
 //	// Copy roundkey array from device memory to host memory to check if it is correct
 //	cudaStatus = cudaMemcpy(h_roundKey, d_roundKey, sizeof(uint8_t) * (BLOCKSIZE * (ROUNDS+1)), cudaMemcpyDeviceToHost);
@@ -207,12 +208,6 @@ Error:
 	fclose(fp_out);
 	exit(1);	
 }
-
-//__device__ void AES128_ECB_encrypt(uint8_t* ciphertext_block, uint8_t* roundKey) {
-//
-//}
-
-
 
 
 // This function produces LANESIZE * (ROUNDS+1) round keys. The round keys are used in each round to decrypt the states. 
@@ -290,7 +285,3 @@ static void phex(uint8_t* str)
 		printf("%.2x", str[i]);
 	printf("\n");
 }
-
-
-
-

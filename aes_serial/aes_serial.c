@@ -1,4 +1,4 @@
-#define DEBUG 1
+#define DEBUG 0
 #define _CRT_SECURE_NO_WARNINGS
 #define _CRT_SECURE_NO_DEPRECATE
 
@@ -26,8 +26,8 @@ uint8_t key[16] = { (uint8_t)0x2b, (uint8_t)0x7e, (uint8_t)0x15, (uint8_t)0x16,
 					(uint8_t)0x09, (uint8_t)0xcf, (uint8_t)0x4f, (uint8_t)0x3c };
 
 //char* INPUT_FILE = "../testdata/test_500k.bin";
-char* INPUT_FILE = "../testdata/plaintext";
-char* OUTPUT_FILE = "../testdata/ciphertext";
+char* INPUT_FILE = "../testdata/test_10k.bin";
+char* OUTPUT_FILE = "../testdata/ciphertext_10k_serial";
 
 int main(void)
 {
