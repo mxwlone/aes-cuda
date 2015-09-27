@@ -3,11 +3,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include <time.h>
+
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
 
 // Number of threads in a block (maximum 1024 for compute capability 2.1)
-#define THREADS_PER_BLOCK 256
+#define THREADS_PER_BLOCK 512
 // blocksize in bytes
 #define BLOCKSIZE 16
 // The number of columns comprising a state in AES.

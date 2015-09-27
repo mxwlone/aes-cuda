@@ -1,4 +1,5 @@
 #include <stdint.h>
+#include <time.h>
 
 // blocksize in bytes
 #define BLOCKSIZE 16

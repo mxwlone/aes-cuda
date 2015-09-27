@@ -25,16 +25,32 @@ uint8_t key[16] = { (uint8_t)0x2b, (uint8_t)0x7e, (uint8_t)0x15, (uint8_t)0x16,
 					(uint8_t)0xab, (uint8_t)0xf7, (uint8_t)0x15, (uint8_t)0x88, 
 					(uint8_t)0x09, (uint8_t)0xcf, (uint8_t)0x4f, (uint8_t)0x3c };
 
-//char* INPUT_FILE = "../testdata/test_500k.bin";
-char* INPUT_FILE = "../testdata/test_10k.bin";
-char* OUTPUT_FILE = "../testdata/ciphertext_10k_serial";
+// unused: file names are provided as parameters
+char* INPUT_FILE = "../testdata/test_10mb.bin";
+char* OUTPUT_FILE = "../testdata/ciphertext_10mb_serial";
 
-int main(void)
-{
-	return encrypt_file(OUTPUT_FILE, INPUT_FILE);
+int main(int argc, char *argv[]) {
+	if (argc < 3) {
+		printf("Usage: aes_serial.exe <input file> <output file>\n", argv[0]);
+		return 1;
+	}
+	clock_t start, end;
+	double cpu_time_used;
+	uint8_t return_value;
+	start = clock();
+
+	return_value = encrypt_file(argv[1], argv[2]);
+	if (return_value != 0)
+		return 1;
+
+	end = clock();
+	cpu_time_used = ((double)(end - start)) / CLOCKS_PER_SEC;
+	printf("Execution time: %f seconds\n", cpu_time_used);
+
+	return return_value;
 }
 
-int encrypt_file(char* outfile, char* infile) {
+int encrypt_file(char* infile, char* outfile) {
 	uint64_t number_of_blocks = 0; 
 	size_t current_blocksize = 0;
 	FILE *fp_in;
@@ -60,6 +76,8 @@ int encrypt_file(char* outfile, char* infile) {
 		phex(roundKey + (i * ROUNDS));
 	}
 #endif
+
+	printf("Encrypting file \"%s\"\n", infile);
 	
 	do {
 		current_blocksize = read_plaintext_block(fp_in);
@@ -95,7 +113,7 @@ int encrypt_file(char* outfile, char* infile) {
 	fclose(fp_in);
 	fclose(fp_out);
 
-	printf("\nEncryption of %llu 128-bit plaintext blocks successful!\n", number_of_blocks);
+	printf("\nEncryption of %llu plaintext blocks successful!\n", number_of_blocks);
 	return 0;
 }
 
@@ -127,8 +145,7 @@ static size_t read_plaintext_block(FILE *fp) {
 }
 
 // prints string as hex
-static void phex(uint8_t* str)
-{
+static void phex(uint8_t* str) {
     unsigned char i;
     for(i = 0; i < 16; ++i)
         printf("%.2x", str[i]);
