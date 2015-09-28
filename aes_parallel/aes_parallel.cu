@@ -13,10 +13,10 @@ uint8_t key[16] = { (uint8_t)0x2b, (uint8_t)0x7e, (uint8_t)0x15, (uint8_t)0x16,
 // The array that stores the round keys.
 uint8_t h_roundKey[176];
 
-bool silent = 0;
+boolean silent = 0;
 
 void print_usage() {
-	printf("Usage: aes_parallel.exe <input file> <output file> [<number of runs>]\n");
+	printf("Usage: aes_parallel.exe <input file> <output file> [--silent]\n");
 	return;
 }
 
@@ -28,30 +28,12 @@ int main(int argc, char *argv[]) {
 
 	double cpu_time_used;
 	
-	if (argc == 3) {
-		cpu_time_used = encrypt_file(argv[1], argv[2], key);
-		printf("Execution time: %6.9f seconds\n", cpu_time_used);
-	}
-	else if (argc == 4) {
-		uint16_t number_of_runs = atoi(argv[3]);
-		if (!number_of_runs) {
-			print_usage();
-			return 1;
-		}
+	if (argc == 4)
+		if (!strcmp(argv[3], "--silent"))
+			silent = 1;
 
-		silent = 1;
-		double total_cpu_time_used = 0.0;
-		uint8_t i;
-		for (i = 0; i < number_of_runs; i++) {
-			cpu_time_used = encrypt_file(argv[1], argv[2], key);
-			printf("[Run %d] Execution time: %.3f seconds\n", i, cpu_time_used);
-			total_cpu_time_used += cpu_time_used;
-		}
-
-		double average_cpu_time_used = total_cpu_time_used / number_of_runs;
-		printf("Total execution time: %.3f seconds\n", total_cpu_time_used);
-		printf("Average execution time: %.3f seconds\n", average_cpu_time_used);
-	}
+	cpu_time_used = encrypt_file(argv[1], argv[2], key);
+	printf("Execution time: %6.9f seconds\n", cpu_time_used);
 
 	return 0;
 }
@@ -110,7 +92,7 @@ double encrypt_file(char* infile, char* outfile, uint8_t* key) {
 
 	uintmax_t threads_per_block = THREADS_PER_BLOCK;
 	uintmax_t number_of_blocks = (plaintext_blocks + threads_per_block - 1) / threads_per_block;
-	uintmax_t shared_memory_size = BLOCKSIZE * THREADS_PER_BLOCK + BLOCKSIZE * (ROUNDS + 1);
+	uintmax_t shared_memory_size = BLOCKSIZE * THREADS_PER_BLOCK + BLOCKSIZE * (ROUNDS + 1) + 256;
 
 	if (!silent) {
 		printf("Launching kernel with configuration:\n");

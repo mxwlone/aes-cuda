@@ -27,11 +27,18 @@ uint8_t key[16] = { (uint8_t)0x2b, (uint8_t)0x7e, (uint8_t)0x15, (uint8_t)0x16,
 					(uint8_t)0xab, (uint8_t)0xf7, (uint8_t)0x15, (uint8_t)0x88, 
 					(uint8_t)0x09, (uint8_t)0xcf, (uint8_t)0x4f, (uint8_t)0x3c };
 
+boolean silent = 0;
+
 int main(int argc, char *argv[]) {
-	if (argc < 3) {
-		printf("Usage: aes_serial.exe <input file> <output file>\n", argv[0]);
+	if (argc < 3 || argc > 4) {
+		printf("Usage: aes_serial.exe <input file> <output file> [--silent]\n", argv[0]);
 		return 1;
 	}
+
+	if (argc == 4)
+		if (!strcmp(argv[3], "--silent"))
+			silent = 1;
+
 
 	double cpu_time_used;
 	cpu_time_used = encrypt_file(argv[1], argv[2]);
@@ -45,12 +52,12 @@ double encrypt_file(char* infile, char* outfile) {
 	FILE *fp_out;
 
 	fp_in = fopen(infile, "rb");
-	if (fp_in == NULL) {
+	if (fp_in == NULL && !silent) {
 		fprintf(stderr, "Can't open input file %s!\n", infile);
 		exit(1);
 	}
 	fp_out = fopen(outfile, "wb+");
-	if (fp_out == NULL) {
+	if (fp_out == NULL && !silent) {
 		fprintf(stderr, "Can't open output file %s!\n", outfile);
 		exit(1);
 	}
@@ -75,8 +82,10 @@ double encrypt_file(char* infile, char* outfile) {
 	uintmax_t plaintext_blocks = (bytes_read + BLOCKSIZE - 1) / BLOCKSIZE;
 	uint8_t* ciphertext = (uint8_t*)malloc(plaintext_blocks*BLOCKSIZE);
 
-	printf("File size: %llu bytes\n", plaintext_size);
-	printf("Number of plaintext blocks: %llu (blocksize: %d bytes)\n", plaintext_blocks, BLOCKSIZE);
+	if (!silent) {
+		printf("File size: %llu bytes\n", plaintext_size);
+		printf("Number of plaintext blocks: %llu (blocksize: %d bytes)\n", plaintext_blocks, BLOCKSIZE);
+	}
 
 #if defined(DEBUG) && DEBUG
 	printf("Plaintext:\n");
@@ -121,7 +130,9 @@ double encrypt_file(char* infile, char* outfile) {
 	fclose(fp_in);
 	fclose(fp_out);
 
-	printf("Encryption of %llu plaintext blocks successful!\n", plaintext_blocks);
+	if (!silent)
+		printf("Encryption of %llu plaintext blocks successful!\n", plaintext_blocks);
+	
 	return cpu_time_used;
 }
 

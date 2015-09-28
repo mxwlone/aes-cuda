@@ -85,14 +85,14 @@ __device__ void AddRoundKey(state_t* state, uint8_t* roundKey, uint8_t round) {
 
 // The SubBytes Function Substitutes the values in the
 // state matrix with values in an S-box.
-__device__ void SubBytes(state_t* state)
+__device__ void SubBytes(state_t* state, uint8_t* s_sbox)
 {
 	uint8_t i, j;
 	for (i = 0; i < 4; ++i)
 	{
 		for (j = 0; j < 4; ++j)
 		{
-			(*state)[j][i] = d_sbox[(*state)[j][i]];
+			(*state)[j][i] = s_sbox[(*state)[j][i]];
 		}
 	}
 }
@@ -111,21 +111,21 @@ __device__ void ShiftRows(state_t* state)
 	(*state)[2][1] = (*state)[3][1];
 	(*state)[3][1] = temp;
 
-	// Rotate second row 2 columns to left  
-	temp = (*state)[0][2];
-	(*state)[0][2] = (*state)[2][2];
-	(*state)[2][2] = temp;
+// Rotate second row 2 columns to left  
+temp = (*state)[0][2];
+(*state)[0][2] = (*state)[2][2];
+(*state)[2][2] = temp;
 
-	temp = (*state)[1][2];
-	(*state)[1][2] = (*state)[3][2];
-	(*state)[3][2] = temp;
+temp = (*state)[1][2];
+(*state)[1][2] = (*state)[3][2];
+(*state)[3][2] = temp;
 
-	// Rotate third row 3 columns to left
-	temp = (*state)[0][3];
-	(*state)[0][3] = (*state)[3][3];
-	(*state)[3][3] = (*state)[2][3];
-	(*state)[2][3] = (*state)[1][3];
-	(*state)[1][3] = temp;
+// Rotate third row 3 columns to left
+temp = (*state)[0][3];
+(*state)[0][3] = (*state)[3][3];
+(*state)[3][3] = (*state)[2][3];
+(*state)[2][3] = (*state)[1][3];
+(*state)[1][3] = temp;
 }
 
 __device__ uint8_t xtime(uint8_t x)
@@ -150,7 +150,7 @@ __device__ void MixColumns(state_t* state)
 }
 
 // Cipher is the main function that encrypts the PlainText.
-__device__ void Cipher(state_t* state, uint8_t* roundKey)
+__device__ void Cipher(state_t* state, uint8_t* roundKey, uint8_t* s_sbox)
 {
 	uint8_t round = 0;
 
@@ -164,7 +164,7 @@ __device__ void Cipher(state_t* state, uint8_t* roundKey)
 	// These ROUNDS-1 rounds are executed in the loop below.
 	for (round = 1; round < ROUNDS; ++round)
 	{
-		SubBytes(state);
+		SubBytes(state, s_sbox);
 		ShiftRows(state);
 		MixColumns(state);
 		AddRoundKey(state, roundKey, round);
@@ -173,58 +173,53 @@ __device__ void Cipher(state_t* state, uint8_t* roundKey)
 
 	// The last round is given below.
 	// The MixColumns function is not here in the last round.
-	SubBytes(state);
+	SubBytes(state, s_sbox);
 	ShiftRows(state);
 	AddRoundKey(state, roundKey, ROUNDS);
 
 	//print_state(state, "after last round key added");
 }
 
-__device__ void AES128_ECB_encrypt(uint8_t* ciphertext_block, uint8_t* roundKey) {
+__device__ void AES128_ECB_encrypt(uint8_t* ciphertext_block, uint8_t* roundKey, uint8_t* s_sbox) {
 	state_t* state = (state_t*)ciphertext_block;
 	//print_state(state, "after init");
 
 	// The next function call encrypts the PlainText with the Key using AES algorithm.
-	Cipher(state, roundKey);
+	Cipher(state, roundKey, s_sbox);
 }
 
 __global__ void cuda_encrypt_block(uint8_t* d_ciphertext, uint8_t* d_plaintext, uint8_t* d_roundKey, uintmax_t plaintext_blocks) {
 	uintmax_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 	__shared__ uint8_t s_roundKey[BLOCKSIZE * (ROUNDS + 1)];
-	//extern __shared__ uint8_t s_ciphertext[];
-	__shared__ uint8_t s_ciphertext[BLOCKSIZE * THREADS_PER_BLOCK];
+	//__shared__ uint8_t s_ciphertext[BLOCKSIZE * THREADS_PER_BLOCK];
+	__shared__ uint8_t s_sbox[256];
 
-	// first thraed of a block copies round key into shared memory
+	uintmax_t offset = idx*BLOCKSIZE;
+	uintmax_t block_offset = (idx % THREADS_PER_BLOCK) * BLOCKSIZE;
+
+	// if there are enough THREADS_PER_BLOCK, the round key allocation to shared memory is performed by (ROUNDS + 1) threads in parallel
+	if (THREADS_PER_BLOCK >= (ROUNDS + 1) && (idx % THREADS_PER_BLOCK) < (ROUNDS + 1)) {
+		memcpy(s_roundKey + block_offset, d_roundKey + block_offset, BLOCKSIZE);
+	}
+	// if not, this is done only by the first thread in a block
+	else if ((idx % THREADS_PER_BLOCK) == 0) {
+		memcpy(s_roundKey, d_roundKey, BLOCKSIZE*(ROUNDS + 1));
+	}
+
+	// first thread in a block copies sbox from constant to shared memory
 	if ((idx % THREADS_PER_BLOCK) == 0) {
-
-		//printf("[Thread %lld] Copy roundkey into shared memory\n", idx);
-		// TODO allocate shared round key by ROUNDS+1 threads in parallel. In this case, we must assure the kernel is launched with at least ROUNDS+1 threads per block.
-		memcpy(s_roundKey, d_roundKey, BLOCKSIZE*(ROUNDS + 1)); // memcpy is faster than for loop copy
-		//uint8_t j;
-		//for (j = 0; j < BLOCKSIZE*(ROUNDS + 1); j++) {
-		//	//printf("s_roundkey[%d] = d_roundKey[%d] = %.2x\n", j, j, d_roundKey[j]);
-		//	s_roundKey[j] = d_roundKey[j];
-		//}
-
+		memcpy(s_sbox, d_sbox, sizeof(uint8_t) * 256);
 	}
 
 	__syncthreads();
 
 	if (idx < plaintext_blocks) {
-		uintmax_t offset = idx*BLOCKSIZE;
-		uintmax_t block_offset = (idx % THREADS_PER_BLOCK) * BLOCKSIZE;
+		//memcpy(s_ciphertext + block_offset, d_plaintext + offset, BLOCKSIZE);
 		
-		// copy plaintext block to be encrypted by this thread into shared ciphertext array
-		//uint8_t i;
-		//for (i = 0; i < BLOCKSIZE; i++) {
-		//	s_ciphertext[offset + i] = d_plaintext[offset + i];
-		//}
-		memcpy(s_ciphertext + block_offset, d_plaintext + offset, BLOCKSIZE);
-		
-		//memcpy(d_ciphertext + offset, d_plaintext + offset, BLOCKSIZE);
+		memcpy(d_ciphertext + offset, d_plaintext + offset, BLOCKSIZE);
 
 		// each plaintext block is encrypted by an individual thread
-		AES128_ECB_encrypt(s_ciphertext + block_offset, s_roundKey);
-		memcpy(d_ciphertext + offset, s_ciphertext + block_offset, sizeof(uint8_t)*BLOCKSIZE);
+		AES128_ECB_encrypt(d_ciphertext + block_offset, s_roundKey, s_sbox);
+		//memcpy(d_ciphertext + offset, s_ciphertext + block_offset, sizeof(uint8_t)*BLOCKSIZE);
 	}
 }
